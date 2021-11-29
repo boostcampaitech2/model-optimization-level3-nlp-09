@@ -8,6 +8,35 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+class LabelSmoothingLoss(nn.Module):
+    def __init__(self, classes=3, smoothing=0.2, dim=-1):
+        super(LabelSmoothingLoss, self).__init__()
+        self.confidence = 1.0 - smoothing
+        self.smoothing = smoothing
+        self.cls = classes
+        self.dim = dim
+        self.weight = [1] * classes
+
+    def forward(self, pred, target):
+        pred = pred.log_softmax(dim=self.dim)
+        self.cls = len(pred[0])
+        with torch.no_grad():
+            true_dist = torch.zeros_like(pred)
+            for i, target_num in enumerate(target):
+                # 0번 째 클래스면 본인보다 위에꺼에 약간 확률주기
+                if target_num == 0:
+                    true_dist[i][target_num+1] = self.smoothing
+                # 마지막 클래스면 본인보다 아래꺼에 약간 확률주기
+                elif target_num == self.cls-1:
+                    true_dist[i][target_num-1] = self.smoothing
+                # 그 외의 경우는 본인 위 아래로 약간 확률주기
+                else:
+                    true_dist[i][target_num+1] = self.smoothing/2
+                    true_dist[i][target_num-1] = self.smoothing/2
+            #true_dist.fill_(self.smoothing / (self.cls - 1))
+            true_dist.scatter_(1, target.data.unsqueeze(1), self.confidence)
+        return torch.mean(torch.sum(-true_dist * pred, dim=self.dim))
+        # return torch.mean(torch.sum(-true_dist * pred, dim=self.dim))/torch.sum(self.weight)
 
 class CustomCriterion:
     """Custom Criterion."""
@@ -36,6 +65,8 @@ class CustomCriterion:
             )
             self.logit_adj_val = self.logit_adj_val.to(device)
             self.criterion = self.logit_adjustment_loss
+        elif loss_type == "label_smoothing":
+            self.criterion = LabelSmoothingLoss(classes=self.no_of_classes)
 
     def __call__(self, logits, labels):
         """Call criterion."""

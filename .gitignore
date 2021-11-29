@@ -139,3 +139,5 @@ cython_debug/
 
 prediction/
 exp/
+wandb/
+nohup.out

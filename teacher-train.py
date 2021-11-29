@@ -10,18 +10,17 @@ from typing import Any, Dict, Tuple, Union
 
 import torch
 import torch.nn as nn
-from torch.nn.modules import loss
 import torch.optim as optim
 import yaml
 
-from src.dataloader import create_dataloader
+from src.dataloader import create_dataloader, create_teacher_dataloader
 from src.loss import CustomCriterion
 from src.model import Model
 from src.trainer import TorchTrainer
 from src.utils.common import get_label_counts, read_yaml
 from src.utils.torch_utils import check_runtime, model_info
 
-import wandb
+
 def train(
     model_config: Dict[str, Any],
     data_config: Dict[str, Any],
@@ -46,7 +45,7 @@ def train(
     model_instance.model.to(device)
 
     # Create dataloader
-    train_dl, val_dl, test_dl = create_dataloader(data_config)
+    train_dl, val_dl, test_dl = create_teacher_dataloader(data_config)
 
     # Create optimizer, scheduler, criterion
     optimizer = torch.optim.SGD(
@@ -60,11 +59,10 @@ def train(
         pct_start=0.05,
     )
     criterion = CustomCriterion(
-        samples_per_cls=get_label_counts(data_config["DATA_PATH"] + '/train')
+        samples_per_cls=get_label_counts(data_config["DATA_PATH"])
         if data_config["DATASET"] == "TACO"
         else None,
         device=device,
-        loss_type="label_smoothing"
     )
     # Amp loss scaler
     scaler = (
@@ -82,6 +80,8 @@ def train(
         model_path=model_path,
         verbose=1,
     )
+    
+
     best_acc, best_f1 = trainer.train(
         train_dataloader=train_dl,
         n_epoch=data_config["EPOCHS"],
@@ -97,7 +97,6 @@ def train(
 
 
 if __name__ == "__main__":
-    wandb.init(project = 'lightweight', entity= 'quarter100', name = f'mv3-ls', group = 'labelsmoothing')
     parser = argparse.ArgumentParser(description="Train model.")
     parser.add_argument(
         "--model",

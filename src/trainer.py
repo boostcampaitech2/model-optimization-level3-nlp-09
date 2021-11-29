@@ -20,7 +20,7 @@ from torch.utils.data.sampler import SequentialSampler, SubsetRandomSampler
 from tqdm import tqdm
 
 from src.utils.torch_utils import save_model
-
+import wandb
 
 def _get_n_data_from_dataloader(dataloader: DataLoader) -> int:
     """Get a number of data in dataloader.
@@ -214,6 +214,7 @@ class TorchTrainer:
         label_list = [i for i in range(num_classes)]
 
         pbar = tqdm(enumerate(test_dataloader), total=len(test_dataloader))
+        
         model.to(self.device)
         model.eval()
         for batch, (data, labels) in pbar:
@@ -239,6 +240,9 @@ class TorchTrainer:
                 f"Acc: {(correct / total) * 100:.2f}% "
                 f"F1(macro): {f1_score(y_true=gt, y_pred=preds, labels=label_list, average='macro', zero_division=0):.2f}"
             )
+        wandb.log({'test_loss':running_loss / (batch + 1),
+                'test_f1':f1_score(y_true=gt, y_pred=preds, labels=label_list, average='macro', zero_division=0),
+                'test_acc':(correct / total) * 100})
         loss = running_loss / len(test_dataloader)
         accuracy = correct / total
         f1 = f1_score(
