@@ -79,7 +79,6 @@ def _get_len_label_from_dataset(dataset: Dataset) -> int:
 
 class TorchTrainer:
     """Pytorch Trainer."""
-
     def __init__(
         self,
         model: nn.Module,
@@ -117,7 +116,7 @@ class TorchTrainer:
         val_dataloader: Optional[DataLoader] = None,
     ) -> Tuple[float, float]:
         """Train model.
-
+        
         Args:
             train_dataloader: data loader module which is a iterator that returns (data, labels)
             n_epoch: number of total epochs for training
@@ -126,6 +125,8 @@ class TorchTrainer:
         Returns:
             loss and accuracy
         """
+        params_nums = count_model_params(self.model)
+        print('params: ',params_nums)
         best_test_acc = -1.0
         best_test_f1 = -1.0
         num_classes = _get_len_label_from_dataset(train_dataloader.dataset)
@@ -188,7 +189,7 @@ class TorchTrainer:
                 data=data,
                 device=self.device,
             )
-
+        
         return best_test_acc, best_test_f1
 
     @torch.no_grad()

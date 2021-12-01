@@ -7,6 +7,9 @@
 """
 import glob
 import os
+import albumentations as A
+import albumentations.pytorch
+import numpy as np
 from typing import Any, Dict, List, Tuple, Union
 
 import torch
@@ -17,7 +20,15 @@ from torchvision.datasets import ImageFolder, VisionDataset
 from src.utils.data import weights_for_balanced_classes
 from src.utils.torch_utils import split_dataset_index
 
+class Transforms:
+    def __init__(self,transforms: A.Compose):
+        self.transforms = transforms
 
+    def __call__(self, img, *args, **kwargs):
+        return self.transforms(image=np.array(img))['image']
+
+
+        
 def create_dataloader(
     config: Dict[str, Any],
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
@@ -72,10 +83,12 @@ def get_dataset(
         __import__("src.augmentation.policies", fromlist=[""]),
         transform_train,
     )(dataset=dataset_name, img_size=img_size, **transform_train_params)
+
     transform_test = getattr(
         __import__("src.augmentation.policies", fromlist=[""]),
         transform_test,
     )(dataset=dataset_name, img_size=img_size, **transform_test_params)
+
 
     label_weights = None
     # pytorch dataset
@@ -83,10 +96,10 @@ def get_dataset(
         train_path = os.path.join(data_path, "train")
         val_path = os.path.join(data_path, "val")
         test_path = os.path.join(data_path, "test")
-
-        train_dataset = ImageFolder(root=train_path, transform=transform_train)
-        val_dataset = ImageFolder(root=val_path, transform=transform_test)
-        test_dataset = ImageFolder(root=test_path, transform=transform_test)
+        print(transform_train)
+        train_dataset = ImageFolder(root=train_path, transform=Transforms(transforms = transform_train))
+        val_dataset = ImageFolder(root=val_path, transform=Transforms(transforms = transform_test))
+        test_dataset = ImageFolder(root=test_path, transform=Transforms(transforms = transform_test))
 
     else:
         Dataset = getattr(
