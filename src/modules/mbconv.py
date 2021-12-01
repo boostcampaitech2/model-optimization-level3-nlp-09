@@ -151,7 +151,8 @@ class MBConvGenerator(GeneratorAbstract):
     @property
     def out_channel(self) -> int:
         """Get out channel size."""
-        return self._get_divisible_channel(self.args[0] * self.width_multiply)
+        #return self._get_divisible_channel(self.args[0] * self.width_multiply)
+        return self._get_divisible_channel(self.args[1] * self.width_multiply)
 
     @property
     def base_module(self) -> nn.Module:
@@ -162,7 +163,8 @@ class MBConvGenerator(GeneratorAbstract):
         """call method.
 
         InvertedResidualv3 args consists,
-        repeat(=n), [c, t, s] // note original notation from paper is [t, c, n, s]
+        repeat(=n), [c, t, s] // note original notation from paper is [t, c, n, s] 
+        NOTE: self.args 는 expand_ratio, out_channel, stride, kernel_size 가 맞습니다! 위에 틀린듯
         """
         module = []
         t, c, s, k = self.args  # c is equivalent as self.out_channel

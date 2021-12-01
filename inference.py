@@ -6,8 +6,11 @@
 import argparse
 import json
 import os
+import numpy as np
 import time
 from datetime import datetime
+import albumentations as A
+import albumentations.pytorch
 
 import torch
 from torch.utils.data import DataLoader
@@ -19,10 +22,7 @@ from src.augmentation.policies import simple_augment_test
 from src.model import Model
 from src.utils.common import read_yaml
 
-if torch.__version__ >= "1.8.1":
-    from torch import profiler
-else:
-    from torch.autograd import profiler
+from torch.autograd import profiler
 
 CLASSES = [
     "Metal",
@@ -33,6 +33,12 @@ CLASSES = [
     "Styrofoam",
 ]
 
+class Transforms:
+    def __init__(self,transforms: A.Compose):
+        self.transforms = transforms
+
+    def __call__(self, img, *args, **kwargs):
+        return self.transforms(image=np.array(img))['image']
 
 class CustomImageFolder(ImageFolder):
     """ImageFolder with filename."""
@@ -62,7 +68,7 @@ def get_dataloader(img_root: str, data_config: str) -> DataLoader:
         data_config["AUG_TEST"],
     )(dataset=data_config["DATASET"], img_size=data_config["IMG_SIZE"])
 
-    dataset = CustomImageFolder(root=img_root, transform=transform_test)
+    dataset = CustomImageFolder(root=img_root, transform=Transforms(transforms = transform_test))
     dataloader = DataLoader(dataset=dataset, batch_size=1, num_workers=8)
     return dataloader
 
@@ -82,10 +88,12 @@ def inference(model, dataloader, dst_path: str, t0: float) -> None:
     model.eval()
 
     profile_ = torch.rand(1, 3, 512, 512).to(device)
-    for transform in dataloader.dataset.transform.transforms:
-        if isinstance(transform, Resize):
-            profile_input = torch.rand(1, 3, *transform.size).to(device)
-            break
+    # for transform in dataloader.dataset.transform.transforms:
+    #     if isinstance(transform, Resize):
+    #         profile_input = torch.rand(1, 3, *transform.size).to(device)
+    #         break
+    # albumentation
+    profile_input = torch.rand(1, 3, 224, 224).to(device)
 
     n_profile = 100
     print(f"Profile input shape: {profile_input.shape}")
