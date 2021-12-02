@@ -14,8 +14,8 @@
 DATA_PATH: "/opt/ml/data/"
 DATASET: "TACO"
 IMG_SIZE: 224
-AUG_TRAIN: "alb_train"
-AUG_TEST: "alb_test"
+AUG_TRAIN: "simple_augment_train"
+AUG_TEST: "simple_augment_test"
 AUG_TRAIN_PARAMS: 
 BATCH_SIZE: 128
 EPOCHS: 100
