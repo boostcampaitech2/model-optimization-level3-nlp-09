@@ -67,9 +67,7 @@ def _get_len_label_from_dataset(dataset: Dataset) -> int:
     Returns:
         A number of label in set.
     """
-    if isinstance(dataset, torchvision.datasets.ImageFolder) or isinstance(
-        dataset, torchvision.datasets.vision.VisionDataset
-    ):
+    if isinstance(dataset, torchvision.datasets.ImageFolder) or isinstance(dataset, torchvision.datasets.vision.VisionDataset):
         return len(dataset.classes)
     elif isinstance(dataset, torch.utils.data.Subset):
         return _get_len_label_from_dataset(dataset.dataset)
@@ -79,6 +77,7 @@ def _get_len_label_from_dataset(dataset: Dataset) -> int:
 
 class TorchTrainer:
     """Pytorch Trainer."""
+
     def __init__(
         self,
         model: nn.Module,
@@ -116,7 +115,7 @@ class TorchTrainer:
         val_dataloader: Optional[DataLoader] = None,
     ) -> Tuple[float, float]:
         """Train model.
-        
+
         Args:
             train_dataloader: data loader module which is a iterator that returns (data, labels)
             n_epoch: number of total epochs for training
@@ -126,7 +125,7 @@ class TorchTrainer:
             loss and accuracy
         """
         params_nums = count_model_params(self.model)
-        print('params: ',params_nums)
+        print("params: ", params_nums)
         best_test_acc = -1.0
         best_test_f1 = -1.0
         num_classes = _get_len_label_from_dataset(train_dataloader.dataset)
@@ -142,9 +141,9 @@ class TorchTrainer:
 
                 if self.scaler:
                     with torch.cuda.amp.autocast():
-                        outputs = self.model(data)
+                        outputs = self.model(data.half())
                 else:
-                    outputs = self.model(data)
+                    outputs = self.model(data.half())
                 outputs = torch.squeeze(outputs)
                 loss = self.criterion(outputs, labels)
 
@@ -175,9 +174,7 @@ class TorchTrainer:
                 )
             pbar.close()
 
-            _, test_f1, test_acc = self.test(
-                model=self.model, test_dataloader=val_dataloader
-            )
+            _, test_f1, test_acc = self.test(model=self.model, test_dataloader=val_dataloader)
             if best_test_f1 > test_f1:
                 continue
             best_test_acc = test_acc
@@ -189,13 +186,11 @@ class TorchTrainer:
                 data=data,
                 device=self.device,
             )
-        
+
         return best_test_acc, best_test_f1
 
     @torch.no_grad()
-    def test(
-        self, model: nn.Module, test_dataloader: DataLoader
-    ) -> Tuple[float, float, float]:
+    def test(self, model: nn.Module, test_dataloader: DataLoader) -> Tuple[float, float, float]:
         """Test model.
 
         Args:
@@ -242,16 +237,18 @@ class TorchTrainer:
                 f"Acc: {(correct / total) * 100:.2f}% "
                 f"F1(macro): {f1_score(y_true=gt, y_pred=preds, labels=label_list, average='macro', zero_division=0):.2f}"
             )
-        
+
         # 마지막 1개만 찍자!
-        wandb.log({'test_loss':running_loss / (batch + 1),
-                    'test_f1':f1_score(y_true=gt, y_pred=preds, labels=label_list, average='macro', zero_division=0),
-                    'test_acc':(correct / total) * 100})
+        wandb.log(
+            {
+                "test_loss": running_loss / (batch + 1),
+                "test_f1": f1_score(y_true=gt, y_pred=preds, labels=label_list, average="macro", zero_division=0),
+                "test_acc": (correct / total) * 100,
+            }
+        )
         loss = running_loss / len(test_dataloader)
         accuracy = correct / total
-        f1 = f1_score(
-            y_true=gt, y_pred=preds, labels=label_list, average="macro", zero_division=0
-        )
+        f1 = f1_score(y_true=gt, y_pred=preds, labels=label_list, average="macro", zero_division=0)
         return loss, f1, accuracy
 
 

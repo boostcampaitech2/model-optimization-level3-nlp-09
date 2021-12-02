@@ -33,12 +33,14 @@ CLASSES = [
     "Styrofoam",
 ]
 
+
 class Transforms:
-    def __init__(self,transforms: A.Compose):
+    def __init__(self, transforms: A.Compose):
         self.transforms = transforms
 
     def __call__(self, img, *args, **kwargs):
-        return self.transforms(image=np.array(img))['image']
+        return self.transforms(image=np.array(img))["image"]
+
 
 class CustomImageFolder(ImageFolder):
     """ImageFolder with filename."""
@@ -59,16 +61,14 @@ def get_dataloader(img_root: str, data_config: str) -> DataLoader:
     # Load yaml
     data_config = read_yaml(data_config)
 
-    transform_test_args = (
-        data_confg["AUG_TEST_PARAMS"] if data_config.get("AUG_TEST_PARAMS") else None
-    )
+    transform_test_args = data_confg["AUG_TEST_PARAMS"] if data_config.get("AUG_TEST_PARAMS") else None
     # Transformation for test
     transform_test = getattr(
         __import__("src.augmentation.policies", fromlist=[""]),
         data_config["AUG_TEST"],
     )(dataset=data_config["DATASET"], img_size=data_config["IMG_SIZE"])
 
-    dataset = CustomImageFolder(root=img_root, transform=Transforms(transforms = transform_test))
+    dataset = CustomImageFolder(root=img_root, transform=transform_test)#transform=Transforms(transforms=transform_test))
     dataloader = DataLoader(dataset=dataset, batch_size=1, num_workers=8)
     return dataloader
 
@@ -99,7 +99,7 @@ def inference(model, dataloader, dst_path: str, t0: float) -> None:
     print(f"Profile input shape: {profile_input.shape}")
     with profiler.profile(use_cuda=True, profile_memory=False) as prof:
         for _ in tqdm(range(100), "Running profile ..."):
-            x = model(profile_input)
+            x = model(profile_input.half())
     avg_time = prof.total_average()
 
     if hasattr(avg_time, "self_cuda_time_total"):
@@ -126,7 +126,7 @@ def inference(model, dataloader, dst_path: str, t0: float) -> None:
         t_end = torch.cuda.Event(enable_timing=True)
 
         t_start.record()
-        img = img.to(device)
+        img = img.half().to(device)
         pred = model(img)
         pred = torch.argmax(pred)
 
@@ -151,20 +151,17 @@ def inference(model, dataloader, dst_path: str, t0: float) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Submit.")
+    parser.add_argument("--dst", type=str, help="destination path for submit", default=os.environ.get("SM_OUTPUT_DATA_DIR"))
     parser.add_argument(
-        "--dst", type=str, help="destination path for submit",
-        default=os.environ.get('SM_OUTPUT_DATA_DIR')
-    )
-    parser.add_argument("--model_dir", type=str, help="Saved model root directory which includes 'best.pt', 'data.yml', and, 'model.yml'", default='/opt/ml/code/exp/latest')
-    parser.add_argument("--weight_name", type=str, help="Model weight file name. (best.pt, best.ts, ...)", default="best.pt")
-    parser.add_argument(
-        "--img_root",
+        "--model_dir",
         type=str,
-        help="image folder root. e.g) 'data/test'",
-        default='/opt/ml/data/test'
+        help="Saved model root directory which includes 'best.pt', 'data.yml', and, 'model.yml'",
+        default="/opt/ml/code/exp/test2",#latest",
     )
+    parser.add_argument("--weight_name", type=str, help="Model weight file name. (best.pt, best.ts, ...)", default="best.pt")#pt")
+    parser.add_argument("--img_root", type=str, help="image folder root. e.g) 'data/test'", default="/opt/ml/data/test")
     args = parser.parse_args()
-    assert args.model_dir != '' and args.img_root != '', "'--model_dir' and '--img_root' must be provided."
+    assert args.model_dir != "" and args.img_root != "", "'--model_dir' and '--img_root' must be provided."
 
     args.weight = os.path.join(args.model_dir, args.weight_name)
     args.model_config = os.path.join(args.model_dir, "model.yml")
@@ -181,11 +178,8 @@ if __name__ == "__main__":
         model = torch.jit.load(args.weight)
     else:
         model_instance = Model(args.model_config, verbose=True)
-        model_instance.model.load_state_dict(
-            torch.load(args.weight, map_location=torch.device("cpu"))
-        )
+        model_instance.model.load_state_dict(torch.load(args.weight, map_location=torch.device("cpu")))
         model = model_instance.model
 
     # inference
     inference(model, dataloader, args.dst, t0)
-

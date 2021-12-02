@@ -32,6 +32,7 @@ from typing import List
 
 import timm
 
+
 def train(
     model_config: Dict[str, Any],
     data_config: Dict[str, Any],
@@ -47,22 +48,20 @@ def train(
         yaml.dump(model_config, f, default_flow_style=False)
 
     model_instance = Model(model_config, verbose=True)
-    #model_instance= models.efficientnet_b0(pretrained= True)
-    #model_instance = timm.create_model('tf_efficientnet_lite0', pretrained=True)
+    # model_instance= models.efficientnet_b0(pretrained= True)
+    # model_instance = timm.create_model('tf_efficientnet_lite0', pretrained=True)
     model_path = os.path.join(log_dir, "best.pt")
     print(f"Model save path: {model_path}")
     if os.path.isfile(model_path):
-        model_instance.model.load_state_dict(
-            torch.load(model_path, map_location=device)
-        )
-    model_instance.model.to(device) #model_instance.to(device)#
+        model_instance.model.load_state_dict(torch.load(model_path, map_location=device))
+    model_instance.model.to(device)  # model_instance.to(device)#
 
     # Create dataloader
     train_dl, val_dl, test_dl = create_dataloader(data_config)
 
     # Create optimizer, scheduler, criterion
-    optimizer= torch.optim.Adam(model_instance.model.parameters(), lr=data_config["INIT_LR"])
-    #optimizer= torch.optim.Adam(model_instance.parameters(), lr=data_config["INIT_LR"])
+    optimizer = torch.optim.Adam(model_instance.model.parameters(), lr=data_config["INIT_LR"])
+    # optimizer= torch.optim.Adam(model_instance.parameters(), lr=data_config["INIT_LR"])
     # optimizer = torch.optim.SGD(
     #     model_instance.model.parameters(), lr=data_config["INIT_LR"], momentum=0.9
     # )
@@ -74,21 +73,17 @@ def train(
         pct_start=0.05,
     )
     criterion = CustomCriterion(
-        samples_per_cls=get_label_counts(data_config["DATA_PATH"]+'/train')
-        if data_config["DATASET"] == "TACO"
-        else None,
+        samples_per_cls=get_label_counts(data_config["DATA_PATH"] + "/train") if data_config["DATASET"] == "TACO" else None,
         device=device,
-        fp16 = fp16,
-        loss_type = "softmax",
+        fp16=fp16,
+        loss_type="logit_adjustment_loss",
     )
     # Amp loss scaler
-    scaler = (
-        torch.cuda.amp.GradScaler() if fp16 and device != torch.device("cpu") else None
-    )
-    
+    scaler = torch.cuda.amp.GradScaler() if fp16 and device != torch.device("cpu") else None
+
     # Create trainer
     trainer = TorchTrainer(
-        model=model_instance, #.model,
+        model=model_instance,  # .model,
         criterion=criterion,
         optimizer=optimizer,
         scheduler=scheduler,
@@ -102,12 +97,10 @@ def train(
         n_epoch=data_config["EPOCHS"],
         val_dataloader=val_dl if val_dl else test_dl,
     )
-    
+
     # evaluate model with test set
     model_instance.model.load_state_dict(torch.load(model_path))
-    test_loss, test_f1, test_acc = trainer.test(
-        model=model_instance.model, test_dataloader=val_dl if val_dl else test_dl
-    )
+    test_loss, test_f1, test_acc = trainer.test(model=model_instance.model, test_dataloader=val_dl if val_dl else test_dl)
     # test_loss, test_f1, test_acc = trainer.test(
     #     model=model_instance, test_dataloader=val_dl if val_dl else test_dl
     # )
@@ -115,17 +108,15 @@ def train(
 
 
 if __name__ == "__main__":
-    wandb.init(project= 'lightweight', entity= 'quarter100', name= f'b0_fix_mbconvargs', group='efficienet')
+    wandb.init(project="lightweight", entity="quarter100", name=f"master_albumentations", group="mobilenetv3")
     parser = argparse.ArgumentParser(description="Train model.")
     parser.add_argument(
         "--model",
-        default="configs/model/efficientnetb0.yaml",
+        default="configs/model/master.yaml",
         type=str,
         help="model config",
     )
-    parser.add_argument(
-        "--data", default="configs/data/taco.yaml", type=str, help="data config"
-    )
+    parser.add_argument("--data", default="configs/data/taco.yaml", type=str, help="data config")
     args = parser.parse_args()
 
     model_config = read_yaml(cfg=args.model)
@@ -134,11 +125,11 @@ if __name__ == "__main__":
     data_config["DATA_PATH"] = os.environ.get("SM_CHANNEL_TRAIN", data_config["DATA_PATH"])
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    log_dir = os.environ.get("SM_MODEL_DIR", os.path.join("exp", 'latest'))
+    log_dir = os.environ.get("SM_MODEL_DIR", os.path.join("exp", "latest"))
 
-    if os.path.exists(log_dir): 
-        modified = datetime.fromtimestamp(os.path.getmtime(log_dir + '/best.pt'))
-        new_log_dir = os.path.dirname(log_dir) + '/' + modified.strftime("%Y-%m-%d_%H-%M-%S")
+    if os.path.exists(log_dir):
+        modified = datetime.fromtimestamp(os.path.getmtime(log_dir + "/best.pt"))
+        new_log_dir = os.path.dirname(log_dir) + "/" + modified.strftime("%Y-%m-%d_%H-%M-%S")
         os.rename(log_dir, new_log_dir)
 
     os.makedirs(log_dir, exist_ok=True)
@@ -150,5 +141,3 @@ if __name__ == "__main__":
         fp16=data_config["FP16"],
         device=device,
     )
-    
-

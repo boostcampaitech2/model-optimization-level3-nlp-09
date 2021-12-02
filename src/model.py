@@ -30,15 +30,16 @@ class Model(nn.Module):
         super().__init__()
         self.model_parser = ModelParser(cfg=cfg, verbose=verbose)
         self.model = self.model_parser.model
+        self.model.half()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward."""
-        return self.forward_one(x)
+        return self.forward_one(x.half())
 
     def forward_one(self, x: torch.Tensor) -> torch.Tensor:
         """Forward onetime."""
 
-        return self.model(x)
+        return self.model(x.half())
 
 
 class ModelParser:
@@ -83,17 +84,14 @@ class ModelParser:
         """Parse model."""
         layers: List[nn.Module] = []
         log: str = (
-            f"{'idx':>3} | {'n':>3} | {'params':>10} "
-            f"| {'module':>15} | {'arguments':>20} | {'in_channel':>12} | {'out_channel':>13}"
+            f"{'idx':>3} | {'n':>3} | {'params':>10} " f"| {'module':>15} | {'arguments':>20} | {'in_channel':>12} | {'out_channel':>13}"
         )
         self.log(log)
         self.log(len(log) * "-")  # type: ignore
 
         in_channel = self.in_channel
         for i, (repeat, module, args) in enumerate(self.model_cfg):  # type: ignore
-            repeat = (
-                max(round(repeat * self.depth_multiply), 1) if repeat > 1 else repeat
-            )
+            repeat = max(round(repeat * self.depth_multiply), 1) if repeat > 1 else repeat
 
             module_generator = ModuleGenerator(module, in_channel)(  # type: ignore
                 *args,
@@ -118,9 +116,6 @@ class ModelParser:
         n_grad = sum([x.numel() for x in parsed_model.parameters() if x.requires_grad])
         # error: Incompatible return value type (got "Tuple[Sequential, List[int]]",
         # expected "Tuple[Module, List[Optional[int]]]")
-        self.log(
-            f"Model Summary: {len(list(parsed_model.modules())):,d} "
-            f"layers, {n_param:,d} parameters, {n_grad:,d} gradients"
-        )
+        self.log(f"Model Summary: {len(list(parsed_model.modules())):,d} " f"layers, {n_param:,d} parameters, {n_grad:,d} gradients")
 
         return parsed_model

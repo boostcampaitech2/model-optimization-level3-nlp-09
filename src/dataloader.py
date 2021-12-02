@@ -20,15 +20,15 @@ from torchvision.datasets import ImageFolder, VisionDataset
 from src.utils.data import weights_for_balanced_classes
 from src.utils.torch_utils import split_dataset_index
 
+
 class Transforms:
-    def __init__(self,transforms: A.Compose):
+    def __init__(self, transforms: A.Compose):
         self.transforms = transforms
 
     def __call__(self, img, *args, **kwargs):
-        return self.transforms(image=np.array(img))['image']
+        return self.transforms(image=np.array(img))["image"]
 
 
-        
 def create_dataloader(
     config: Dict[str, Any],
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
@@ -66,7 +66,7 @@ def get_dataset(
     data_path: str = "./save/data",
     dataset_name: str = "CIFAR10",
     img_size: float = 32,
-    val_ratio: float=0.2,
+    val_ratio: float = 0.2,
     transform_train: str = "simple_augment_train",
     transform_test: str = "simple_augment_test",
     transform_train_params: Dict[str, int] = None,
@@ -89,7 +89,6 @@ def get_dataset(
         transform_test,
     )(dataset=dataset_name, img_size=img_size, **transform_test_params)
 
-
     label_weights = None
     # pytorch dataset
     if dataset_name == "TACO":
@@ -97,25 +96,17 @@ def get_dataset(
         val_path = os.path.join(data_path, "val")
         test_path = os.path.join(data_path, "test")
         print(transform_train)
-        train_dataset = ImageFolder(root=train_path, transform=Transforms(transforms = transform_train))
-        val_dataset = ImageFolder(root=val_path, transform=Transforms(transforms = transform_test))
-        test_dataset = ImageFolder(root=test_path, transform=Transforms(transforms = transform_test))
+        train_dataset = ImageFolder(root=train_path, transform=Transforms(transforms=transform_train))
+        val_dataset = ImageFolder(root=val_path, transform=Transforms(transforms=transform_test))
+        test_dataset = ImageFolder(root=test_path, transform=Transforms(transforms=transform_test))
 
     else:
-        Dataset = getattr(
-            __import__("torchvision.datasets", fromlist=[""]), dataset_name
-        )
-        train_dataset = Dataset(
-            root=data_path, train=True, download=True, transform=transform_train
-        )
+        Dataset = getattr(__import__("torchvision.datasets", fromlist=[""]), dataset_name)
+        train_dataset = Dataset(root=data_path, train=True, download=True, transform=transform_train)
         # from train dataset, train: 80%, val: 20%
-        train_length = int(len(train_dataset) * (1.0-val_ratio))
-        train_dataset, val_dataset = random_split(
-            train_dataset, [train_length, len(train_dataset) - train_length]
-        )
-        test_dataset = Dataset(
-            root=data_path, train=False, download=False, transform=transform_test
-        )
+        train_length = int(len(train_dataset) * (1.0 - val_ratio))
+        train_dataset, val_dataset = random_split(train_dataset, [train_length, len(train_dataset) - train_length])
+        test_dataset = Dataset(root=data_path, train=False, download=False, transform=transform_test)
     return train_dataset, val_dataset, test_dataset
 
 
@@ -128,25 +119,12 @@ def get_dataloader(
     """Get dataloader for training and testing."""
 
     train_loader = DataLoader(
-        dataset=train_dataset,
-        pin_memory=(torch.cuda.is_available()),
-        shuffle=True,
-        batch_size=batch_size,
-        num_workers=10,
-        drop_last=True
+        dataset=train_dataset, pin_memory=(torch.cuda.is_available()), shuffle=True, batch_size=batch_size, num_workers=10, drop_last=True
     )
     valid_loader = DataLoader(
-        dataset=val_dataset,
-        pin_memory=(torch.cuda.is_available()),
-        shuffle=False,
-        batch_size=batch_size,
-        num_workers=5
+        dataset=val_dataset, pin_memory=(torch.cuda.is_available()), shuffle=False, batch_size=batch_size, num_workers=5
     )
     test_loader = DataLoader(
-        dataset=test_dataset,
-        pin_memory=(torch.cuda.is_available()),
-        shuffle=False,
-        batch_size=batch_size,
-        num_workers=5
+        dataset=test_dataset, pin_memory=(torch.cuda.is_available()), shuffle=False, batch_size=batch_size, num_workers=5
     )
     return train_loader, valid_loader, test_loader
